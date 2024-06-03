@@ -25,7 +25,6 @@ TOKENS = {
 
 @webhook_bp.route('/authorize')
 def authorize():
-   
     scopes = SCOPES.replace(' ', '%20')
     auth_url = f"{AUTHORIZATION_URL}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&scope={scopes}"
     return redirect(auth_url)
@@ -87,28 +86,19 @@ def refresh_token():
         'expires_in': tokens['expires_in'],
         'last_refreshed': time.time()
     })
-    save_tokens()
+    save_tokens(TOKENS)
     print(tokens)
     return jsonify({'message': 'Access token refreshed', 'access_token': tokens['access_token'], 'updated_tokens': TOKENS})
 
 
 @webhook_bp.route('/webhook', methods=['POST'])
 def webhook():
-    global TOKENS
     data = request.json
     email = data.get('email')
     name = data.get('name')
     
     if not email:
         return jsonify({'error': 'Email is required'}), 400
-
-    local_result = None
-    action = None
-
-    local_result, action = upsert_contact(email, name)
-    
-    if not local_result:
-        return jsonify({'error': 'Failed to update local contact'}), 500
 
     access_token = get_hubspot_token()
     if not access_token:
@@ -118,8 +108,4 @@ def webhook():
     if 'status' in hubspot_result and hubspot_result['status'] == 'error':
         return jsonify({'error': 'Failed to update HubSpot contact', 'details': hubspot_result}), 500
     
-    return jsonify({
-        'local_result': local_result,
-        'local_action': action,
-        'hubspot_result': hubspot_result
-    })
+    return jsonify({'hubspot_result': hubspot_result})
