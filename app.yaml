@@ -1,0 +1,11 @@
+runtime: python311
+entrypoint: pipenv run python app.py
+
+service: datasocial
+
+runtime_config:
+  python_version: 3.9
+
+handlers:
+- url: /.*
+  script: auto
