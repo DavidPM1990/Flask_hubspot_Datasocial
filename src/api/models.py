@@ -1,4 +1,4 @@
-from database import db
+from src.api.database import db
 
 class Contact(db.Model):
     id = db.Column(db.Integer, primary_key=True)

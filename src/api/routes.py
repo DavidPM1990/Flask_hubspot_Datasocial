@@ -1,20 +1,17 @@
 from flask import Blueprint, request, jsonify, redirect
-from helpers import upsert_contact, upsert_hubspot_contact, get_hubspot_token, save_tokens, load_tokens
+from src.api.helpers import upsert_hubspot_contact, get_hubspot_token, save_tokens
 import requests
 import time
-import os
-import json
+
 
 webhook_bp = Blueprint('webhook_bp', __name__)
 
 CLIENT_ID = 'a103975e-0126-43ca-a5c7-c0ae3c3a62c2'
 CLIENT_SECRET = 'e7d3f137-a889-43fd-b3f2-3b0fb31969a0'
-REDIRECT_URI = 'http://localhost:5000/oauth-callback'
+REDIRECT_URI = 'https://datasocial-dot-hubspot-flask-project.uc.r.appspot.com/oauth-callback'
 SCOPES = 'crm.objects.contacts.write oauth crm.objects.contacts.read'
-
 AUTHORIZATION_URL = 'https://app.hubspot.com/oauth/authorize'
 
-TOKENS_FILE = 'tokens.json'
 
 TOKENS = {
     'access_token': None,
@@ -61,7 +58,28 @@ def oauth_callback():
     
     save_tokens(TOKENS)
 
-    return jsonify({'message': 'Tokens received', 'tokens': tokens, 'updated_tokens': TOKENS})
+    refresh_token()
+
+    message = """
+    <html>
+    <head><title>Authorization Successful</title></head>
+    <body>
+        <h1>Authorization successful!</h1>
+        <p>To complete the process, make a POST request to <strong>/webhook</strong> with the following JSON body:</p>
+        <pre>
+            {
+                "email": "example@example.com",
+                "name": "example"
+            }
+        </pre>
+        <p>This will update HubSpot contact details.</p>
+    </body>
+    </html>
+    """
+    
+    return message
+    
+    return jsonify({'message': message})
 
 
 @webhook_bp.route('/refresh-token')
@@ -87,8 +105,8 @@ def refresh_token():
         'last_refreshed': time.time()
     })
     save_tokens(TOKENS)
-    print(tokens)
-    return jsonify({'message': 'Access token refreshed', 'access_token': tokens['access_token'], 'updated_tokens': TOKENS})
+
+    return jsonify({'message': 'Access token refreshed'})
 
 
 @webhook_bp.route('/webhook', methods=['POST'])
@@ -102,10 +120,10 @@ def webhook():
 
     access_token = get_hubspot_token()
     if not access_token:
-        return jsonify({'error': 'Failed to get access token'}), 500
+        return jsonify({'error': 'Failed to get access token, go first to Hubspot Authorization'}), 500
     
     hubspot_result = upsert_hubspot_contact(email, name, access_token)
     if 'status' in hubspot_result and hubspot_result['status'] == 'error':
         return jsonify({'error': 'Failed to update HubSpot contact', 'details': hubspot_result}), 500
     
-    return jsonify({'hubspot_result': hubspot_result})
+    return jsonify({'message': 'Contacto actualizado en HubSpot', 'hubspot_result': hubspot_result})
